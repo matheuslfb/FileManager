@@ -29,37 +29,42 @@ class MyFilesVC: UITableViewController {
     
     func getFilesName() {
         
-        let filemanager = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
         let fm = FileManager.default
         let path = Bundle.main.resourcePath!
         
-        //        do {
-        //            let items = try? fm.contentsOfDirectory(atPath: filemanager.absoluteString)
-        //            for item in items! {
-        //
-        //                listOfFiles.append(item)
-        //            }
-        //            print("depois de ler os arquivos\(listOfFiles.count)")
-        //        } catch  {
-        //            print(error.localizedDescription)
-        //        }
-        
-        
-        
+        var error: NSError? = nil
+        NSFileCoordinator().coordinate(readingItemAt: url, error: &error) { (url) in
+            
+            let keys : [URLResourceKey] = [.nameKey, .isDirectoryKey]
+            
+            // Get an enumerator for the directory's content.
+            guard let fileList =
+                FileManager.default.enumerator(at: url, includingPropertiesForKeys: keys) else {
+                    print("*** Unable to access the contents of \(url.path) ***\n")
+                    return
+            }
+            
+            for case let file as URL in fileList {
+                // Also start accessing the content's security-scoped URL.
+                //                guard url.startAccessingSecurityScopedResource() else {
+                //                    // Handle the failure here.
+                //                    continue
+                //                }
+                
+                // Make sure you release the security-scoped resource when you are done.
+                defer { url.stopAccessingSecurityScopedResource() }
+                
+                // Do something with the file here.
+                
+                listOfFiles.append(file.lastPathComponent)
+            }
+        }
     }
     
     func configureNavButtons() {
-        let showDocumentsButton = UIBarButtonItem(barButtonSystemItem: .add, target: self, action: #selector(showDocuments))
+        let showDocumentsButton = UIBarButtonItem(barButtonSystemItem: .action, target: self, action: #selector(showDocuments))
         navigationItem.rightBarButtonItem = showDocumentsButton
-        
-    }
-    
-    @objc func browseVC() {
-        let browserVC = UIDocumentBrowserViewController(forOpeningFilesWithContentTypes: [kUTTypeItem as String])
-        browserVC.delegate = self
-        browserVC.allowsDocumentCreation = true
-        browserVC.allowsPickingMultipleItems = false
-        present(browserVC, animated: true)
     }
     
     @objc func showDocuments() {
@@ -78,58 +83,26 @@ class MyFilesVC: UITableViewController {
         cell.textLabel?.text = listOfFiles[indexPath.row]
         
         return cell
+    }
+    
+    override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         
-        
+        let file = listOfFiles[indexPath.row]
+        let vc = ViewController()
+         vc.sendFile(data: file)
     }
     
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return listOfFiles.count
     }
     
-    
-    
-    //        let file = "\(UUID().uuidString).txt"
-    //        let contents = UIDevice.current.name
-    //
-    //        let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-    //        let fileURL = dir.appendingPathComponent(file)
-    //
-    //        do {
-    //            try contents.write(to: fileURL, atomically: false, encoding: .utf8)
-    //        } catch  {
-    //            print("ERROR: \(error)")
-    //        }
-}
-
-
-extension MyFilesVC: UIDocumentBrowserViewControllerDelegate {
-    func documentBrowser(_ controller: UIDocumentBrowserViewController, didPickDocumentURLs documentURLs: [URL]) {
-        guard let sourceURL = documentURLs.first else { return }
-        
-        // When the user has chosen an existing document, a new `DocumentViewController` is presented for the first document that was picked.
-        //        presentDocument(at: sourceURL)
-        print(sourceURL.lastPathComponent)
-        listOfFiles.append(sourceURL.lastPathComponent)
-    }
-    
-    func documentBrowser(_ controller: UIDocumentBrowserViewController, didRequestDocumentCreationWithHandler importHandler: @escaping (URL?, UIDocumentBrowserViewController.ImportMode) -> Void) {
-        
-        print("quero criar um doc")
-        let file = "\(UUID().uuidString).txt"
-        let contents = UIDevice.current.name
-        
-        let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-        let fileURL = dir.appendingPathComponent(file)
-        
-        do {
-                    try contents.write(to: fileURL, atomically: false, encoding: .utf8)
-                } catch  {
-                    
-                    print("ERROR: \(error)")
-                }
+    override func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
+        if editingStyle == .delete {
+            listOfFiles.remove(at: indexPath.row)
+            tableView.deleteRows(at: [indexPath], with: .fade)
+        }
     }
 }
-
 
 ///Document picker delegate
 extension MyFilesVC: UIDocumentPickerDelegate {
@@ -140,22 +113,11 @@ extension MyFilesVC: UIDocumentPickerDelegate {
         let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
         let sandboxFileURL = dir.appendingPathComponent(selectedFileURL.lastPathComponent)
         
-        print(sandboxFileURL.lastPathComponent)
+//        print(sandboxFileURL.lastPathComponent)
         DispatchQueue.main.async {
             self.listOfFiles.append(sandboxFileURL.lastPathComponent)
             self.tableView.reloadData()
         }
-        //        if FileManager.default.fileExists(atPath: sandboxFileURL.path) {
-        //            print("Already exist")
-        //        } else {
-        //            do{
-        //                try FileManager.default.copyItem(at: selectedFileURL, to: sandboxFileURL)
-        //                print("Copied file!")
-        //            } catch {
-        //                print("ERROR to try copy: \(error)")
-        //
-        //            }
-        //        }
     }
     
     
